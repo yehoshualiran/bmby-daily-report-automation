@@ -1,0 +1,39 @@
+name: Daily Bmby Report Automation
+
+on:
+  schedule:
+    # רץ כל יום בשעה 21:30 (זמן ישראל = 19:30 UTC)
+    - cron: '30 19 * * *'
+  workflow_dispatch: # מאפשר הרצה ידנית לבדיקה
+
+jobs:
+  fetch-and-send-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install selenium
+          pip install webdriver-manager
+      
+      - name: Install Chrome and ChromeDriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver
+          sudo ln -s /usr/lib/chromium-browser/chromedriver /usr/local/bin/chromedriver
+      
+      - name: Run the automation script
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+          TARGET_EMAIL: ${{ secrets.TARGET_EMAIL }}
+        run: |
+          python fetch_bmby_report.py
