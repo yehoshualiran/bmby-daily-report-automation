@@ -17,39 +17,39 @@ from email import encoders
 import os
 from datetime import datetime, timedelta
 
-# הגדרות מתוך environment variables
+# Environment variables
 GMAIL_USER = os.environ.get('GMAIL_USER')
 GMAIL_PASSWORD = os.environ.get('GMAIL_PASSWORD')
 TARGET_EMAIL = os.environ.get('TARGET_EMAIL', 'liran@ozblend.co.il')
 
 def fetch_latest_bmby_email():
-    """מחבר ל-Gmail ומוצא את המייל האחרון מבמבי"""
-    print("🔍 מתחבר ל-Gmail: {}".format(GMAIL_USER))
+    """Connect to Gmail and find the latest Bmby email"""
+    print("Connecting to Gmail: {}".format(GMAIL_USER))
     
     mail = imaplib.IMAP4_SSL("imap.gmail.com")
     mail.login(GMAIL_USER, GMAIL_PASSWORD)
     mail.select("inbox")
     
-    # חיפוש מיילים מבמבי מהיום האחרון
+    # Search for Bmby emails from the last day
     search_criteria = '(FROM "info@bmby.co.il" SUBJECT "דוח פעילות יומי")'
     _, search_data = mail.search(None, search_criteria)
     
     mail_ids = search_data[0].split()
     
     if not mail_ids:
-        print("❌ לא נמצאו מיילים מבמבי")
+        print("No emails found from Bmby")
         return None
     
-    # לקיחת המייל האחרון
+    # Get the latest email
     latest_email_id = mail_ids[-1]
     _, msg_data = mail.fetch(latest_email_id, "(RFC822)")
     
     email_body = msg_data[0][1]
     email_message = email.message_from_bytes(email_body)
     
-    print("✅ נמצא מייל מתאריך: {}".format(email_message['Date']))
+    print("Found email from date: {}".format(email_message['Date']))
     
-    # חילוץ תוכן המייל
+    # Extract email content
     body = ""
     if email_message.is_multipart():
         for part in email_message.walk():
@@ -63,17 +63,17 @@ def fetch_latest_bmby_email():
     return body
 
 def extract_tracking_url(email_body):
-    """מחלץ את קישור המעקב מהמייל"""
+    """Extract tracking URL from email"""
     match = re.search(r'https://uclicks\.inforu\.net/[^\s"\'<>]+', email_body)
     if match:
         url = match.group(0)
-        print("🔗 נמצא קישור מעקב: {}".format(url))
+        print("Found tracking URL: {}".format(url))
         return url
     return None
 
 def download_pdf_with_selenium(tracking_url):
-    """משתמש ב-Selenium כדי לפתוח את הקישור ולהוריד את ה-PDF"""
-    print("🌐 פותח דפדפן...")
+    """Use Selenium to open the link and download the PDF"""
+    print("Opening browser...")
     
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -81,7 +81,7 @@ def download_pdf_with_selenium(tracking_url):
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-gpu")
     
-    # הגדרת תיקיית הורדות
+    # Set download directory
     download_dir = "/tmp/bmby_downloads"
     os.makedirs(download_dir, exist_ok=True)
     
@@ -95,18 +95,17 @@ def download_pdf_with_selenium(tracking_url):
     driver = webdriver.Chrome(options=chrome_options)
     
     try:
-        print("📄 ניגש לקישור: {}".format(tracking_url))
+        print("Accessing URL: {}".format(tracking_url))
         driver.get(tracking_url)
         
-        # המתנה לטעינת הדף
+        # Wait for page to load
         time.sleep(3)
         
-        # חיפוש כפתור "לצפייה"
+        # Try to find and click the button
         try:
-            # ניסיון למצוא קישור או כפתור
             wait = WebDriverWait(driver, 10)
             
-            # נסה למצוא קישור עם טקסט רלוונטי
+            # Try to find link with relevant text
             possible_selectors = [
                 "//a[contains(text(), 'לצפייה')]",
                 "//a[contains(text(), 'לחץ כאן')]",
@@ -118,7 +117,7 @@ def download_pdf_with_selenium(tracking_url):
             for selector in possible_selectors:
                 try:
                     element = wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                    print("✅ נמצא כפתור/קישור, לוחץ...")
+                    print("Found button/link, clicking...")
                     element.click()
                     clicked = True
                     break
@@ -126,97 +125,97 @@ def download_pdf_with_selenium(tracking_url):
                     continue
             
             if not clicked:
-                print("⚠️ לא נמצא כפתור ספציפי, ממתין ל-redirect אוטומטי...")
+                print("No specific button found, waiting for auto-redirect...")
             
-            # המתנה ל-redirect או הורדה
+            # Wait for redirect or download
             time.sleep(5)
             
-            # בדיקה אם יש PDF ב-URL הנוכחי
+            # Check if current URL contains PDF
             current_url = driver.current_url
-            print("🔗 URL נוכחי: {}".format(current_url))
+            print("Current URL: {}".format(current_url))
             
             if '.pdf' in current_url or 'bmby.com' in current_url:
-                # הורדת ה-PDF
+                # Download the PDF
                 driver.get(current_url)
                 time.sleep(3)
                 
                 pdf_path = os.path.join(download_dir, "report.pdf")
                 
-                # בדיקה אם הקובץ הורד
+                # Check if file was downloaded
                 files = os.listdir(download_dir)
                 if files:
                     downloaded_file = os.path.join(download_dir, files[0])
                     os.rename(downloaded_file, pdf_path)
-                    print("✅ PDF הורד בהצלחה: {}".format(pdf_path))
+                    print("PDF downloaded successfully: {}".format(pdf_path))
                     return pdf_path
                 
-            print("❌ לא הצלחנו להוריד את ה-PDF")
+            print("Failed to download PDF")
             return None
             
         except Exception as e:
-            print("❌ שגיאה בניסיון להוריד: {}".format(str(e)))
+            print("Error while trying to download: {}".format(str(e)))
             return None
             
     finally:
         driver.quit()
 
 def send_email_with_attachment(pdf_path):
-    """שולח את ה-PDF במייל"""
-    print("📧 שולח מייל ל-{}".format(TARGET_EMAIL))
+    """Send the PDF via email"""
+    print("Sending email to {}".format(TARGET_EMAIL))
     
     msg = MIMEMultipart()
     msg['From'] = GMAIL_USER
     msg['To'] = TARGET_EMAIL
-    msg['Subject'] = 'דוח פעילות יומי – במבי מערכות תוכנה'
+    msg['Subject'] = 'Daily Activity Report - Bmby Systems'
     
-    body = "מצורף דוח הפעילות היומי מבמבי.\n\nנשלח אוטומטית על ידי GitHub Actions."
+    body = "Attached is the daily activity report from Bmby.\n\nSent automatically by GitHub Actions."
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
     
-    # צירוף הקובץ
+    # Attach the file
     with open(pdf_path, 'rb') as attachment:
         part = MIMEBase('application', 'octet-stream')
         part.set_payload(attachment.read())
         encoders.encode_base64(part)
-        part.add_header('Content-Disposition', 'attachment; filename=דוח-יומי-bmby.pdf')
+        part.add_header('Content-Disposition', 'attachment; filename=bmby-daily-report.pdf')
         msg.attach(part)
     
-    # שליחה
+    # Send
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.starttls()
     server.login(GMAIL_USER, GMAIL_PASSWORD)
     server.send_message(msg)
     server.quit()
     
-    print("✅ המייל נשלח בהצלחה!")
+    print("Email sent successfully!")
 
 def main():
     print("=" * 50)
-    print("🚀 מתחיל תהליך העברת דוח במבי")
+    print("Starting Bmby report automation")
     print("=" * 50)
     
-    # שלב 1: מציאת המייל
+    # Step 1: Find the email
     email_body = fetch_latest_bmby_email()
     if not email_body:
-        print("❌ כישלון: לא נמצא מייל")
+        print("FAILED: No email found")
         return
     
-    # שלב 2: חילוץ הקישור
+    # Step 2: Extract the link
     tracking_url = extract_tracking_url(email_body)
     if not tracking_url:
-        print("❌ כישלון: לא נמצא קישור במייל")
+        print("FAILED: No tracking URL found in email")
         return
     
-    # שלב 3: הורדת ה-PDF
+    # Step 3: Download the PDF
     pdf_path = download_pdf_with_selenium(tracking_url)
     if not pdf_path:
-        print("❌ כישלון: לא הצלחנו להוריד את ה-PDF")
+        print("FAILED: Could not download PDF")
         return
     
-    # שלב 4: שליחת המייל
+    # Step 4: Send the email
     send_email_with_attachment(pdf_path)
     
     print("=" * 50)
-    print("🎉 התהליך הושלם בהצלחה!")
+    print("Process completed successfully!")
     print("=" * 50)
 
 if __name__ == "__main__":
