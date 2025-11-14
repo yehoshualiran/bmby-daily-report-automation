@@ -35,5 +35,8 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
           TARGET_EMAIL: ${{ secrets.TARGET_EMAIL }}
+          PYTHONIOENCODING: utf-8
+          LANG: en_US.UTF-8
+          LC_ALL: en_US.UTF-8
         run: |
           python fetch_bmby_report.py
