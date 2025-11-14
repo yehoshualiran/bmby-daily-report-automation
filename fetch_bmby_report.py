@@ -30,8 +30,8 @@ def fetch_latest_bmby_email():
     mail.login(GMAIL_USER, GMAIL_PASSWORD)
     mail.select("inbox")
     
-    # Search for Bmby emails from the last day
-    search_criteria = '(FROM "info@bmby.co.il" SUBJECT "דוח פעילות יומי")'
+    # Search for Bmby emails - no Hebrew in search to avoid encoding issues
+    search_criteria = '(FROM "info@bmby.co.il")'
     _, search_data = mail.search(None, search_criteria)
     
     mail_ids = search_data[0].split()
@@ -107,10 +107,9 @@ def download_pdf_with_selenium(tracking_url):
             
             # Try to find link with relevant text
             possible_selectors = [
-                "//a[contains(text(), 'לצפייה')]",
-                "//a[contains(text(), 'לחץ כאן')]",
                 "//a[contains(@href, 'pdf')]",
-                "//a[contains(@href, 'bmby.com')]"
+                "//a[contains(@href, 'bmby.com')]",
+                "//a[contains(@href, 'MailReports')]"
             ]
             
             clicked = False
